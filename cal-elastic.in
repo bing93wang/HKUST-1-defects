@@ -1,0 +1,90 @@
+##### Basci Settings #####
+variable        simname index HKUST-1_3x3x3_5.0
+log             log.${simname}.txt
+units		    real        # time in fs; energy in Kcal/mole; pressure in atomspheres
+dimension	    3
+variable   		temperature	equal	300 #the temperature is set as 300K
+boundary 	    p p p 
+variable        dt equal 0.25
+timestep        ${dt}
+atom_style	    charge
+box tilt        large
+
+read_data 	    ${simname}.data
+
+
+newton on
+pair_style      reax/c NULL checkqeq yes safezone 1.6  mincap 100 
+pair_coeff      * * CuBTC.ff C Cu H O
+neigh_modify    every 1 delay 0 check yes    
+fix             1 all qeq/reax 1 0.0 10.0 1.0e-6 reax/c
+
+
+
+thermo      1000   
+variable    ndelta equal 1                   
+variable    nevery equal 10                  # sampling interval 
+variable    nrepeat equal 1                 # number of samples 
+variable    nfreq equal ${nevery}*${nrepeat} # length of one average 
+thermo_style custom step temp pe etotal press vol lx ly lz
+
+variable        pdamp       equal 1000*${dt}
+variable        tdamp       equal 100*${dt}
+
+
+######################################
+# RELAXATION   
+
+minimize		1.0e-4	1.0e-8	100000	100000  
+
+
+fix		    1  all nvt temp ${temperature} ${temperature} ${tdamp}
+run         100000
+unfix	    1
+fix         2 all npt temp ${temperature} ${temperature} ${tdamp} iso 0.0 0.0 ${pdamp}
+run         100000
+unfix		2
+
+# loop calculation
+
+label loop
+variable a loop ${ndelta} 
+#calculate for the Born stability 
+#variable pressure index 570 760 950 1140 1330 1520 1710 1900 2090 2280 2470 2660 2850 3040 
+#calculate for the elastic constant 
+variable pressure index 0
+
+reset_timestep 0
+print '***pressure*** ${pressure}'
+
+fix  3 all npt temp ${temperature} ${temperature} ${tdamp} tri ${pressure} ${pressure} ${pdamp} 
+dump positions all atom 10000 ${simname}_pressure_${pressure}.lammpstrj
+
+variable ra_cella equal cella
+variable ra_cellb equal cellb
+variable ra_cellc equal cellc
+variable ra_cellalpha equal cellalpha
+variable ra_cellbeta equal cellbeta
+variable ra_cellgamma equal cellgamma
+
+variable ra_etotal equal etotal
+variable ra_temp equal temp
+variable ra_press equal press
+variable ra_volume equal vol
+
+run 400000
+
+fix runningavgs all ave/time ${nevery} ${nrepeat} ${nfreq} v_ra_cella v_ra_cellb v_ra_cellc v_ra_cellalpha v_ra_cellbeta v_ra_cellgamma v_ra_etotal v_ra_temp v_ra_press v_ra_volume file important_${pressure}.out format %20.10f
+
+run 2000000
+
+undump positions
+unfix runningavgs
+unfix 3
+write_data vartemp_${pressure}.data
+
+next            a
+next            pressure
+jump            SELF loop
+
+
