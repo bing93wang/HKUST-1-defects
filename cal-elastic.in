@@ -50,7 +50,7 @@ unfix		2
 label loop
 variable a loop ${ndelta} 
 #calculate for the Born stability 
-#variable pressure index 570 760 950 1140 1330 1520 1710 1900 2090 2280 2470 2660 2850 3040 
+#variable pressure index 0 570 760 950 1140 1330 1520 1710 1900 2090 2280 2470 2660 2850 3040 
 #calculate for the elastic constant 
 variable pressure index 0
 
